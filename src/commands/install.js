@@ -18,7 +18,7 @@ async function installProject() {
 }
 
 async function installPackages(packages) {
-  const tree = buildTree(packages);
+  const tree = await buildTree(packages);
 }
 
 async function buildTree(packages) {
