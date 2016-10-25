@@ -33,7 +33,7 @@ async function download(info) {
     const response = await session.get(info.dist.tarball, { stream: true });
     response.pipe(out);
     await promiseEvent(response);
-    await promiseEvent(out);
+    //await promiseEvent(out);
     await checkHash(file, info);
   }
 }

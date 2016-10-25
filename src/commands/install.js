@@ -4,17 +4,31 @@ const Promise = require('bluebird');
 const path = require('path');
 const resolve = require('../resolve');
 const download = require('../download');
+const { read } = require('../package');
 
 async function run(...packages) {
-  console.log(`installing ${packages}...`);
   if (packages.length === 0) {
     await installProject();
   } else {
-    await installPackages(packages);
+    const list = packages.map(specifier => specifier.split('@'));
+    await installPackages(list);
   }
 }
 
-async function installProject() {
+async function installProject(dir) {
+  const info = await read(dir);
+  const list = Object.keys(info.dependencies || {}).map(
+    name => [name, info.dependencies[name]]
+  );
+  for (const name of Object.keys(info.devDependencies || {})) {
+    if (info.dependencies[name]) {
+      throw new Error(
+        `Package can\'t be both in dependencies and devDependencies: ${name}.`
+      );
+    }
+    list.push([name, info.devDependencies[name]]);
+  }
+  await installPackages(list);
 }
 
 async function installPackages(packages) {
@@ -22,7 +36,7 @@ async function installPackages(packages) {
 }
 
 async function buildTree(packages) {
-  let remaining = packages.map(specifier => specifier.split('@'));
+  let remaining = packages;
   const data = new Map();
   const versions = new Map();
   while (remaining.length > 0) {
@@ -44,11 +58,13 @@ async function buildTree(packages) {
       ).filter(spec => !versions.has(spec.join('@')))
     ));
   }
+  console.log(versions);
   for (const [spec, res] of versions) {
+    console.log(spec, res);
     const row = data.get(res);
     await download(row);
   }
-  console.log(versions);
+  console.log('Done!');
 }
 
 module.exports = {
