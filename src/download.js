@@ -5,6 +5,7 @@ const fs = Promise.promisifyAll(require('fs'));
 const path = require('path');
 const crypto = require('crypto');
 const bhttp = require('bhttp');
+const assert = require('assert');
 const { mkdirpAsync, promiseEvent } = require('./helpers');
 const { config } = require('./config');
 
@@ -22,6 +23,7 @@ async function download(info) {
     hasDir = true;
   }
   const filename = info.dist.tarball.split('/').pop();
+  assert(/^[a-zA-Z0-9][a-zA-Z0-9_.\-]*\.tgz$/.test(filename));
   const file = path.join(config.cache, filename);
   info.package = file;
 
