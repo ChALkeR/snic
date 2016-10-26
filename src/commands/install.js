@@ -60,56 +60,125 @@ async function extractTree(tree, data, prefix = './') {
   }
 }
 
-async function buildTree(packages, data, versions) {
-  const specs = packages.map(row => row.join('@'));
-  const tree = {};
+async function buildTree(packages, data, resolve) {
+  /*
+   What is important here are the dependency chains.
 
-  // Add top-level packages
-  for (const row of packages) {
-    const spec = versions.get(row.join('@'));
-    tree[spec] = {};
-  }
+   We build everything into dependency chains, where one chain represents
+   one leaf of the tree.
 
-  // The deduping is not ideal here, this operation blocks some further
-  // optimizations. TODO: rework deduping
+   The logic tries to minimize those chains.
 
-  // Add no-conflicting packages
-  const counts = new Map();
+   Chains are represented as strings of resolved package ids.
+  */
+
+  // Build a map from package id to package deps
+  const deps = new Map();
   for (const [id, row] of data) {
-    if (!counts.has(row.name)) {
-      counts.set(row.name, new Set());
-    }
-    const subcounts = counts.get(row.name);
-    subcounts.add(row.version);
+    deps.set(id, row._listDependencies.map(
+      dspec => resolve.get(dspec.join('@'))
+    ));
   }
 
-  for (const [spec, row] of data) {
-    const count = counts.get(row.name);
-    if (count.size === 1) {
-      tree[spec] = {};
-      counts.delete(row.name)
+  // Build chains and chains index
+  const chains = new Set();
+  const names = new Map(); // name -> version
+
+  const queue = [];
+  // Queue top-level packages
+  for (const spec of packages) {
+    const id = resolve.get(spec.join('@'));
+    queue.push([id]);
+  }
+
+  // Build the `names` structure
+  let chain;
+  while (chain = queue.shift()) {
+    const id = chain[chain.length - 1];
+    const [name, version] = id.split('@');
+    if (!names.has(name)) {
+      names.set(name, new Set());
+    }
+    const versions = names.get(name);
+    versions.add(version);
+
+    chains.add(chain.join(','));
+
+    for (const did of deps.get(id)) {
+      const [dname, dversion] = did.split('@');
+      if (chain.includes(did)) {
+        const same = chain.map(x => x.split('@')).filter(x => x[0] === dname);
+        const last = same.pop()
+        if (last[1] !== dversion) {
+          throw new Error(`Unresolvable cycle: ${chain.join(',')},${did}`);
+        }
+        continue;
+      }
+      queue.push([...chain, did]);
     }
   }
 
-  if (counts.size === 0) {
-    // Yay, the whole tree is flat, we got no conflicts!
-    return tree;
+  // Move all unique deps that have no other non-top deps to top
+  // Remove them from the dependency chains — those are resolved completely
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const [name, versions] of names) {
+      if (versions.size > 1) continue;
+      for (const version of versions) {
+        const id = `${name}@${version}`;
+        if (deps.get(id).filter(did => !chains.has(did)).length > 0) continue;
+        for (const schain of chains) {
+          const chain = schain.split(',');
+          if (chain.indexOf(id) > 0) {
+            const nchain = chain.slice(chain.indexOf(id));
+            chains.delete(schain);
+            chains.add(nchain.join(','));
+            changed = true;
+          }
+        }
+      }
+    }
   }
 
-  // Ok, let's build the actual tree here.
-
-  processTree(tree, (subtree, spec) => {
-    const row = data.get(spec);
-    const deps = row._listDependencies.filter(
-      ([id]) => counts.has(id)
-    );
-    for (const dep of deps) {
-      const resolved = versions.get(dep.join('@'));
-      subtree[resolved] = {};
+  // Move all unique deps to top
+  // Remove them from the dependency chains — those are resolved completely
+  // WARNING: this is not optimal and breaks further optimizations, but this is
+  // best we currently get
+  for (const [name, versions] of names) {
+    if (versions.size > 1) continue;
+    for (const version of versions) {
+      const id = `${name}@${version}`;
+      for (const schain of chains) {
+        const chain = schain.split(',');
+        if (chain.indexOf(id) > 0) {
+          const nchain = chain.slice(chain.indexOf(id));
+          chains.delete(schain);
+          chains.add(nchain.join(','));
+        }
+      }
     }
-  });
+  }
+
+  /*
+  for (const schain of chains) {
+    if (schain.indexOf(',') > -1) console.log(schain);
+  }
+  */
 
   // TODO: dedupe further
+
+  // Convert chains to tree
+  const tree = {};
+  for (const chain of chains) {
+    let pointer = tree;
+    for (const spec of chain.split(',')) {
+      if (!pointer[spec]) {
+        pointer[spec] = {};
+      }
+      pointer = pointer[spec];
+    }
+  }
 
   return tree;
 }
