@@ -18,13 +18,15 @@ const session = bhttp.session({
 let hasDir = false;
 
 async function download(info) {
+  const cacheDir = path.join(config.cache, 'packages');
   if (!hasDir) {
-    await mkdirpAsync(config.cache);
+    await mkdirpAsync(cacheDir);
     hasDir = true;
   }
+
   const filename = info.dist.tarball.split('/').pop();
   assert(/^[a-zA-Z0-9][a-zA-Z0-9_.\-]*\.tgz$/.test(filename));
-  const file = path.join(config.cache, filename);
+  const file = path.join(cacheDir, filename);
   info.package = file;
 
   try {

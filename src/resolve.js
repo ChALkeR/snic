@@ -1,8 +1,12 @@
 'use strict';
 
 const Promise = require('bluebird');
+const fs = Promise.promisifyAll(require('fs'));
+const path = require('path');
+const assert = require('assert');
 const bhttp = require('bhttp');
 const semver = require('semver');
+const { mkdirpAsync } = require('./helpers');
 const { config } = require('./config');
 
 const resolved = new Map();
@@ -14,12 +18,37 @@ const session = bhttp.session({
   }
 });
 
+let hasDir = false;
+
 async function getInfo(name) {
   if (info.has(name)) {
     return info.get(name);
   }
+  assert(/^[a-zA-Z0-9][a-zA-Z0-9_.\-]*$/.test(name));
+
+  const cacheDir = path.join(config.cache, 'meta');
+  if (!hasDir) {
+    await mkdirpAsync(cacheDir);
+    hasDir = true;
+  }
+  const cacheFile = path.join(cacheDir, `${name}.json`);
+
+  try {
+    const json = await fs.readFileAsync(cacheFile);
+    const now = Date.now();
+    const { time, headers, data } = JSON.parse(json);
+    // WARNING: high number for testing only
+    if (now - time <= 360000) { // TODO: check based on headers
+      info.set(name, data);
+      return data;
+    }
+  } catch (e) {}
+
   const url = `${config.registry}${name}`;
   const response = await session.get(url);
+
+  const time = Date.now();
+  const headers = response.headers;
   const data = response.body;
 
   // No need to store this
@@ -31,6 +60,9 @@ async function getInfo(name) {
     row.devDependencies = undefined;
     row._npmOperationalInternal = undefined;
   }
+
+  const meta = { name, time, headers, data };
+  await fs.writeFileAsync(cacheFile, JSON.stringify(meta));
 
   info.set(name, data);
   return data;
