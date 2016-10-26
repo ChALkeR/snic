@@ -63,7 +63,6 @@ async function extractTree(tree, data, prefix = './') {
 async function buildTree(packages, data, versions) {
   const specs = packages.map(row => row.join('@'));
   const tree = {};
-  const list = [];
 
   // Add top-level packages
   for (const row of packages) {
@@ -95,29 +94,31 @@ async function buildTree(packages, data, versions) {
   }
 
   // Ok, let's build the actual tree here.
-  const processNode = (subtree, spec) => {
-    const row = data.get(spec);
-    const deps = row._listDependencies.filter(
-      ([id]) => counts.has(id)
-    );
-    for (const dep of deps) {
-      const resolved = versions.get(dep.join('@'));
-      subtree[spec][resolved] = {};
-    }
-    processTree(subtree[spec]);
-  };
-  const processTree = (subtree) => {
-    for (const spec of Object.keys(subtree)) {
-      processNode(subtree, spec);
-    }
-  };
 
-  processTree(tree);
+  processTree(tree, data, versions, counts);
 
   // TODO: dedupe further
 
   return tree;
 }
+
+function processNode(tree, spec, data, versions, counts) {
+  const row = data.get(spec);
+  const deps = row._listDependencies.filter(
+    ([id]) => counts.has(id)
+  );
+  for (const dep of deps) {
+    const resolved = versions.get(dep.join('@'));
+    tree[spec][resolved] = {};
+  }
+  processTree(tree[spec], data, versions, counts);
+};
+
+function processTree(tree, data, versions, counts) {
+  for (const spec of Object.keys(tree)) {
+    processNode(tree, spec, data, versions, counts);
+  }
+};
 
 async function buildVersions(packages) {
   let remaining = packages;
