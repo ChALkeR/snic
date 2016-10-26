@@ -118,7 +118,7 @@ async function buildTree(packages, data, resolve) {
     }
   }
 
-  // Move all unique deps that have no other non-top deps to top
+  // Move all unique deps that have no other non-top deps to the top
   // Remove them from the dependency chains — those are resolved completely
   let changed = true;
   while (changed) {
@@ -141,7 +141,7 @@ async function buildTree(packages, data, resolve) {
     }
   }
 
-  // Move all unique deps to top
+  // Move all unique deps to the top
   // Remove them from the dependency chains — those are resolved completely
   // WARNING: this is not optimal and breaks further optimizations, but this is
   // best we currently get
