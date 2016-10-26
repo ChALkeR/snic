@@ -45,14 +45,16 @@ async function installPackages(packages) {
 }
 
 async function extractTree(tree, data, prefix = './') {
-  if (Object.keys(tree).length === 0) {
-    return;
-  }
-  for (const spec of Object.keys(tree)) {
-    const info = data.get(spec);
-    const dir = path.join(prefix, 'node_modules.snic', info.name);
-    await extract(info.package, dir);
-    await extractTree(tree[spec], data, dir);
+  const queue = [[tree, data, prefix]];
+  let row;
+  while (row = queue.shift()) {
+    [ tree, data, prefix ] = row;
+    for (const spec of Object.keys(tree)) {
+      const info = data.get(spec);
+      const dir = path.join(prefix, 'node_modules.snic', info.name);
+      await extract(info.package, dir);
+      queue.push([tree[spec], data, dir]);
+    }
   }
 }
 
