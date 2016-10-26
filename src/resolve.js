@@ -35,7 +35,7 @@ async function getInfo(name) {
 
   try {
     const json = await fs.readFileAsync(cacheFile);
-    const now = Date.now();
+    const now = Date.now() / 1000;
     const { time, headers, data } = JSON.parse(json);
     // WARNING: high number for testing only
     if (now - time <= 360000) { // TODO: check based on headers
@@ -47,7 +47,7 @@ async function getInfo(name) {
   const url = `${config.registry}${name}`;
   const response = await session.get(url);
 
-  const time = Date.now();
+  const time = Date.now() / 1000;
   const headers = response.headers;
   const data = response.body;
 
