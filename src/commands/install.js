@@ -72,25 +72,30 @@ async function buildTree(packages, data, versions) {
 
   // Add no-conflicting packages
   const counts = new Map();
-  const remaining = new Set();
-  for (const [, row] of data) {
-    counts.set(row.name, counts.get(row.name) || 0 + 1);
+  for (const [id, row] of data) {
+    if (!counts.has(row.name)) {
+      counts.set(row.name, new Set());
+    }
+    const subcounts = counts.get(row.name);
+    subcounts.add(row.version);
   }
+
   for (const [spec, row] of data) {
     const count = counts.get(row.name);
-    if (count === 1) {
+    if (count.size === 1) {
       tree[spec] = {};
-    } else {
-      remaining.set(spec, count);
+      counts.delete(row.name)
     }
   }
 
-  if (remaining.size === 0) {
+  if (counts.size === 0) {
     return tree;
   }
-  console.log(remaining);
 
-  console.log(tree);
+  console.log('Unmatched:');
+  console.log(counts);
+
+  return tree;
 }
 
 async function buildVersions(packages) {
