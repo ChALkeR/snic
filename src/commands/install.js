@@ -65,7 +65,7 @@ async function buildTree(packages, data, resolve) {
    What is important here are the dependency chains.
 
    We build everything into dependency chains, where one chain represents
-   one leaf of the tree.
+   one node of the tree.
 
    The logic tries to minimize those chains.
 
