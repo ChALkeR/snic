@@ -16,13 +16,17 @@ async function list(file) {
             .sort();
 }
 
-async function extract(filename, dir) {
+async function verify(filename) {
   const file = await fs.realpathAsync(filename);
 
   const lines = await list(file);
   if (!lines.every(x => x.indexOf('/') !== -1)) {
     throw new Error('Package contains top-level files!');
   }
+}
+
+async function extract(filename, dir) {
+  const file = await fs.realpathAsync(filename);
 
   await mkdirpAsync(dir);
   const args = [
@@ -39,5 +43,6 @@ async function extract(filename, dir) {
 }
 
 module.exports = {
+  verify,
   extract
 };

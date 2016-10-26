@@ -8,6 +8,7 @@ const bhttp = require('bhttp');
 const assert = require('assert');
 const { mkdirpAsync, promiseEvent } = require('./helpers');
 const { config } = require('./config');
+const { verify } = require('./extract');
 
 const session = bhttp.session({
   headers: {
@@ -33,12 +34,15 @@ async function download(info) {
     await checkHash(file, info);
   } catch (e) {
     console.log(`Downloading: ${file}...`);
-    const out = fs.createWriteStream(file);
+    const fileTmp = `${file}.part`;
+    const out = fs.createWriteStream(fileTmp);
     const response = await session.get(info.dist.tarball, { stream: true });
     response.pipe(out);
     await promiseEvent(response);
     //await promiseEvent(out);
-    await checkHash(file, info);
+    await checkHash(fileTmp, info);
+    await verify(fileTmp);
+    await fs.renameAsync(fileTmp, file);
   }
 }
 
