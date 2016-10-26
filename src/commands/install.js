@@ -37,9 +37,11 @@ async function installPackages(packages) {
 
   const tree = await buildTree(packages, data, versions);
 
-  for (const [, row] of data) {
-    await download(row);
-  }
+  await Promise.map(
+    data,
+    ([, row]) => download(row),
+    {concurrency: 10}
+  );
 
   await extractTree(tree, data);
 }
