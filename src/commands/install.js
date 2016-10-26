@@ -53,7 +53,7 @@ async function extractTree(tree, data, prefix = './') {
     [ tree, data, prefix ] = row;
     for (const spec of Object.keys(tree)) {
       const info = data.get(spec);
-      const dir = path.join(prefix, 'node_modules.snic', info.name);
+      const dir = path.join(prefix, 'node_modules', info.name);
       await extract(info.package, dir);
       queue.push([tree[spec], data, dir]);
     }
