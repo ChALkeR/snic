@@ -61,6 +61,8 @@ async function getInfo(name) {
     row._npmOperationalInternal = undefined;
     row._listDependencies = Object.keys(row.dependencies || {}).map(
       name => [name, row.dependencies[name]]
+    ).filter(([name, version]) =>
+      !(row.bundleDependencies || []).includes(name)
     );
   }
 
