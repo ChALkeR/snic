@@ -6,6 +6,7 @@ const path = require('path');
 const crypto = require('crypto');
 const bhttp = require('bhttp');
 const assert = require('assert');
+const child_process = Promise.promisifyAll(require('child_process'));
 const { mkdirpAsync, promiseEvent } = require('./helpers');
 const { config } = require('./config');
 const { verify } = require('./extract');
@@ -46,13 +47,29 @@ async function download(info) {
   }
 }
 
-async function checkHash(file, info) {
-  const hash = crypto.createHash('sha1');
+async function sha1(file) {
+  return shajs(file);
+}
+
+async function shanative(file, algo = 1) {
+  const result = await child_process.execFileAsync(
+    'shasum',
+    ['-a', algo, file]
+  );
+  return result.split(' ')[0];
+}
+
+async function shajs(file, algo = 'sha1') {
+  const hash = crypto.createHash(algo);
   const input = fs.createReadStream(file);
   input.pipe(hash);
   await promiseEvent(input);
   await promiseEvent(hash, 'readable');
-  if (info.dist.shasum !== hash.read().toString('hex')) {
+  return hash.read().toString('hex');
+}
+
+async function checkHash(file, info) {
+  if (info.dist.shasum !== await sha1(file)) {
     throw new Error('Hash mismatch for ' + file);
   }
 }
