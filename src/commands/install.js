@@ -77,6 +77,24 @@ async function buildTree(packages, data, resolve) {
   for (const [id, row] of data) {
     deps.set(id, row._listDependencies.map(
       dspec => resolve.get(dspec.join('@'))
+    ).filter(
+      did => {
+        const [dname, dversion] = did.split('@');
+        const optional = (row.optionalDependencies || {})[dname];
+        const ok = packageSupported(data.get(did));
+        if (!ok) {
+          if (optional) {
+            console.log(
+              `SKIPPING OPTIONAL DEPENDENCY: Unsupported platform for ${did}.`
+            );
+          } else {
+            throw new Error(
+              `CAN NOT INSTALL DEPENDENCY: Unsupported platform for ${did}.`
+            );
+          }
+        }
+        return ok;
+      }
     ));
   }
 
@@ -88,6 +106,11 @@ async function buildTree(packages, data, resolve) {
   // Queue top-level packages
   for (const spec of packages) {
     const id = resolve.get(spec.join('@'));
+    if (!packageSupported(data.get(id))) {
+      throw new Error(
+        `CAN NOT INSTALL PACKAGE: Unsupported platform for ${did}.`
+      );
+    }
     queue.push([id]);
   }
 
@@ -190,6 +213,14 @@ function processTree(tree, callback, ...args) {
     processTree(subtree, callback, ...args);
   }
 };
+
+function packageSupported(info) {
+  const os = 'linux';
+  if (info.os && !info.os.includes(os)) {
+    return false;
+  }
+  return true;
+}
 
 async function buildVersions(packages) {
   let remaining = packages;
