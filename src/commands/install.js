@@ -63,6 +63,7 @@ async function extractTree(tree, data, prefix = './') {
 async function buildTree(packages, data, versions) {
   const specs = packages.map(row => row.join('@'));
   const tree = {};
+  const list = [];
 
   // Add top-level packages
   for (const row of packages) {
@@ -89,11 +90,31 @@ async function buildTree(packages, data, versions) {
   }
 
   if (counts.size === 0) {
+    // Yay, the whole tree is flat, we got no conflicts!
     return tree;
   }
 
-  console.log('Unmatched:');
-  console.log(counts);
+  // Ok, let's build the actual tree here.
+  const processNode = (subtree, spec) => {
+    const row = data.get(spec);
+    const deps = row._listDependencies.filter(
+      ([id]) => counts.has(id)
+    );
+    for (const dep of deps) {
+      const resolved = versions.get(dep.join('@'));
+      subtree[spec][resolved] = {};
+    }
+    processTree(subtree[spec]);
+  };
+  const processTree = (subtree) => {
+    for (const spec of Object.keys(subtree)) {
+      processNode(subtree, spec);
+    }
+  };
+
+  processTree(tree);
+
+  // TODO: dedupe further
 
   return tree;
 }
@@ -116,9 +137,9 @@ async function buildVersions(packages) {
       data.set(res, row);
     }
     remaining = [].concat(...resolved.map(
-      row => Object.keys(row.dependencies || {}).map(
-        name => [name, row.dependencies[name]]
-      ).filter(spec => !versions.has(spec.join('@')))
+      row => row._listDependencies.filter(
+        spec => !versions.has(spec.join('@'))
+      )
     ));
   }
   return [data, versions];

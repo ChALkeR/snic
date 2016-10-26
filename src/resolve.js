@@ -59,6 +59,9 @@ async function getInfo(name) {
     row.contributors = undefined;
     row.devDependencies = undefined;
     row._npmOperationalInternal = undefined;
+    row._listDependencies = Object.keys(row.dependencies || {}).map(
+      name => [name, row.dependencies[name]]
+    );
   }
 
   const meta = { name, time, headers, data };
