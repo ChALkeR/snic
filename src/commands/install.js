@@ -70,6 +70,9 @@ async function buildTree(packages, data, versions) {
     tree[spec] = {};
   }
 
+  // The deduping is not ideal here, this operation blocks some further
+  // optimizations. TODO: rework deduping
+
   // Add no-conflicting packages
   const counts = new Map();
   for (const [id, row] of data) {
