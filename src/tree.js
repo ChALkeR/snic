@@ -142,6 +142,67 @@ async function buildTree(packages, data, resolve) {
     }
   }
 
+  // Move most popular deps to the top
+  // Remove them from the dependency chains — those are resolved completely
+  // WARNING: this is not optimal and breaks further optimizations, but this is
+  // best we currently get
+  // WARNING: very unoptimal algorithm, it's 3:42 am here
+  const counts = new Map();
+  for (const schain of chains) {
+    const chain = schain.split(',');
+    const id = chain[chain.length - 1];
+    counts.set(id, (counts.get(id) || 0) + 1);
+  }
+  const list = [];
+  for (const [id, count] of counts) {
+    if (count < 2) continue;
+    list.push([count, id]);
+  }
+  list.sort((a, b) => {
+    if (a[0] < b[0]) return 1;
+    if (a[0] > b[0]) return -1;
+    return 0;
+  });
+  for (const [, id] of list) {
+    if (chains.has(id)) continue;
+    const [name, version] = id.split('@');
+    const prefix = `${name}@`;
+    for (const schain of chains) {
+      const chain = schain.split(',');
+      const index = chain.indexOf(id);
+      if (index <= 0) continue;
+      //console.log(schain);
+      let ok = true;
+      for (let i = 0; i < index; i++) {
+        if (chain[i].startsWith(prefix)) {
+          // We have another version earlier than the current one
+          ok = false;
+        }
+      }
+      if (!ok) continue;
+      for (let i = 0; i < index; i++) {
+        const achain = [...chain.slice(0, i), prefix].join(',');
+        const bchain = [...chain.slice(0, i), id].join(',');
+        let found = false;
+        for (const sschain of chains) {
+          if (sschain.startsWith(achain) && !sschain.startsWith(bchain)) {
+            found = true;
+            break;
+          }
+        }
+        if (found) {
+          ok = false;
+          break;
+        }
+      }
+      if (!ok) continue;
+      //console.log('.');
+      const nchain = chain.slice(chain.indexOf(id));
+      chains.delete(schain);
+      chains.add(nchain.join(','));
+    }
+  }
+
   /*
   for (const schain of chains) {
     if (schain.indexOf(',') > -1) console.log(schain);
